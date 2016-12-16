@@ -10,6 +10,7 @@ About Scala:
 - was built to be concise, high level, and scalable
 */
 
+
 /*
 ---
 Chapter 2: First Steps in Scala
@@ -46,9 +47,97 @@ for(x <- List(1,2,3,4)) {
   println(x)
 }
 
+
 /*
 ---
 Chapter 3: Next Steps in Scala
 
-
+Scala was designed to encourage the use of functional paradigms.
+Accessing elements of sequences is done using parentheses instead of square brackets.
+Types for generic classes can be specified using square brackets.
+Writing parentheses following any type invokes the "apply" function of the method.
  */
+val list = List[Float](1,2,3,4)
+2.0 == list(1) && list(1) == list.apply(1)
+/*
+Operators (+, -, *, /, etc.) are methods of classes rather than reserved tokens.
+Writing "a op b" is equivalent to invoking the "op" method of a with b as a parameter.
+ */
+1 + 2 == 1.+(2)
+(1 to 5) == 1.to(5)
+/*
+Writing functions which don't have side effects is a core idea of functional programming. Doing so makes code more reliable and maintainable.
+Declaring a variable as a "val" means it cannot be assigned to another object, but the object itself can still be mutable.
+Lists are immutable sequences which encourage functional style.
+ */
+val nums = Array(1,2,3)
+nums(2) = 4
+val nums2 = List(1,2,3)
+//nums2(2) = 4 (will not compile)
+/*
+There are mutable and immutable versions of most collection classes (sets, maps, etc.).
+Map entries are key-value pairs, joined by the "->" function (which converts the key and value to an appropriately-typed 2-tuple).
+ */
+val mutableSet : scala.collection.mutable.Set[String] = new scala.collection.mutable.HashSet[String]
+mutableSet += "new"
+mutableSet += ("entries", "can", "be", "added")
+val mutableMap : scala.collection.mutable.Map[String, Int] = new scala.collection.mutable.HashMap[String, Int]
+mutableMap += ("Woofles" -> 3)
+mutableMap("Woofles") == 3
+/*
+Classes in Scala define constructor parameters in the class signature, and automatically use the arguments as field values of the class.
+Any code not inside the body of a method in a class is executed when an object is constructed.
+The constructor defined by the signature is the "primary" constructor.
+Multiple "auxiliary" constructors can be defined as methods named "this", and the first statement in them should be a call to another constructor.
+ */
+class Animal(species:String, val cute:Boolean) { // writing "val" before the second parameter makes it publicly accessible.
+  if (species == "dog") println("Good choice.")
+  def this(species:String) = this(species, true)
+  def speak() = {
+    println(s"Hi! I am a $species. I am ${if (!cute) "" else "not "}cute.")
+  }
+}
+val dog = new Animal("dog") // > Good choice.
+val cat = new Animal("cat", false)
+dog.speak() // > Hi! I am a dog. I am cute.
+cat.speak() // > Hi! I am a cat. I am not cute.
+/*
+Scala classes cannot have static fields. Instead, one can create a singleton object.
+Singleton objects need not be instantiated - they are automatically instantiated the first time they are used.
+A singleton object can share the same name as a class. When this occurs, it is referred to as a companion object.
+ */
+object Animal {
+  def describe(a: Animal) = if (a.cute) "cute" else "not cute"
+}
+Animal.describe(dog) == "cute"
+/*
+Command-line compilation and execution are similar to Java.
+Use "scalac <files>" to compile, and "scala <file>" to run.
+The "fsc" command can be used instead of "scalac" to create a background process to host the compiler rather than start up the Java runtime every compilation.
+The entry point of Scala programs is a "main" method with an array of Strings as parameter within a standalone object. Alternatively, an object can extend the "App" trait.
+
+Scala traits are similar to Java interfaces. The methods defined in a trait can abstract (as in Java), or explicitly defined.
+A class can extend one other class, and extend many traits.
+When overriding a method of a superclass, the keyword "override" is used.
+ */
+trait Shape {
+  def draw():String = "pretend I know what this shape looks like"
+}
+class Square extends Shape {
+  override def draw():String = "[]"
+}
+class WeirdSquare extends Square {
+  override def draw():String = "<>"
+}
+val sq: Shape = new Square
+val wsq: Shape = new WeirdSquare
+sq.draw == "[]"
+wsq.draw == "<>" // dynamic dispatch
+/*
+It is possible to mix traits in at instantiation. When this happens, the compiler creates a "synthetic" class and instantiates it.
+ */
+trait SquigglyShape extends Shape {
+  override def draw():String = "~" + super.draw() + "~"
+}
+val squigglySquare : Shape = new Square with SquigglyShape
+squigglySquare.draw() == "~[]~"
