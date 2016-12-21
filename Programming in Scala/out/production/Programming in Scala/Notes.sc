@@ -158,54 +158,8 @@ Line endings are treated as semicolons unless the line ending cannot be the endi
 
 Singleton objects can also be used as the entry point to a Scala application by defining a main method with an argument of type Array[String] and a result type of Unit.
  */
-object Example {
+object example {
   def main(args: Array[String]): Unit = {
     args.foreach(println)
   }
 }
-
-/*
----
-Chapter 5: Basic Types and Operations
-
-Scala's basic types have the same ranges as Java primitives.
-Rules about literals:
-  - 0x__ is a hex number
-  - 0___ is an octal number
-  - otherwise, a number is decimal
-  - an integer literal ending in l is a Long
-  - a decimal literal ending in f is a Float
-  - character literals are quotes with single quotes
-  - octal characters can be specified with '\#', hex characters can be specified with '\u#'
-
-All operators are methods of the operands' types.
-Infix operators are just method calls with the parameters. Prefix operators are limited to unary +, -, !, and ~.
- */
-1 + 2l == 1.+(2l)
-val d : String = "Doggies"
-d.indexOf('g') == (d indexOf 'g')
-d.indexOf('g',3) == (d indexOf ('g', 3))
--2 == 2.unary_-
-d.toLowerCase == (d toLowerCase)
-/*
-The == operator calls the equals() method as long as neither side is null.
-Whereas Java's == checks reference equality for objects, in Scala it compares object equality. The eq and ne operators can be used to check reference equality.
-
-Bitwise operators &, |, ^, and ~ perform AND, OR, XOR, and complementing on bits. << and >> can shift left and right while maintaining sign, while >>> shifts right and fills with zeroes.
-
-To decide operator precedence, Scala prioritizes methods based on the first character in their names (e.g. *** > +++).
-Operators are left-associative (grouped left to right).
-The exception to this is when the operator ends in ":", in which case the operator is right-associative since it is a method call of the right operand with the left operand as argument.
- */
-5 + 2 * 3 == 5 + (2 * 3)
-1 * 2 * 3 == (1 * 2) * 3
-1 * 2 * 3 == 1.*(2).*(3)
-List(1) :: List(2) :: List(3) == List(1) :: (List(2) :: List(3))
-List(1) :: List(2) == List(2).::(List(1))
-/*
-The basic types have rich wrappers which provide additional functionality.
- */
-(0 max 5) == 5
-(-2.7 abs) == 2.7
-((1.0/0) isInfinity) == true
-("bob" capitalize) == "Bob"
