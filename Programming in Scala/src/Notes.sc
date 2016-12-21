@@ -209,3 +209,150 @@ The basic types have rich wrappers which provide additional functionality.
 (-2.7 abs) == 2.7
 ((1.0/0) isInfinity) == true
 ("bob" capitalize) == "Bob"
+
+/*
+---
+Chapter 6: Functional Objects
+
+vals should generally be preferred over vars because they are easier to reason about. Nonetheless, there are still circumstances where it makes more sense to use vars.
+The primary constructor of a class takes the class parameters and executes all statements in the class body.
+Auxiliary constructors can be defined as methods named "this" with different parameters. They must call another constructor as their first statement, so that the primary constructor is the point of entry for a class.
+
+Overriding the toString method defines the way to print an object of a class.
+Private fields can only be accessed from within a class; protected fields can be accessed within a class or within a subclass.
+The "this" keyword can be used to refer to an object or its members, but "this.foo" is equivalent to just "foo" so it's not usually necessary.
+
+In addition to regular alphanumeric identifiers, Scala supports:
+  - operator identifiers (+, :, ?, ~, #, etc.) are ASCII characters which are not letters, digits, or reserved symbols
+  - mixed identifiers (vector_+, success_?, etc.) are alphanumeric identifiers followed by an underscore and an operator identifier
+  - literal identifiers (`x`, `yield`, etc.) are strings wrapped in back-ticks, which can be useful to avoid collision with reserved keywords
+
+Methods can be overloaded with different parameters. Overloading resolution is done to best match the arguments' static types as in Java.
+ */
+class Rational(n: Int, d: Int) {
+  def this(n: Int) = this(n,1) // create rationals without specifying denominator
+
+  private def gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+  private val g = gcd(n, d) // only accessible from within this class
+  val numer: Int = n / g
+  val denom: Int = d / g
+
+  def +(that: Rational): Rational = new Rational(numer * that.denom + that.numer * denom, denom * that.denom)
+  def +(that: Int): Rational = this + new Rational(that)
+  def -(that: Rational): Rational = new Rational(numer * that.denom - that.numer * denom, denom * that.denom)
+  def -(that: Int): Rational = this - new Rational(that)
+  def *(that: Rational): Rational = new Rational(numer * that.numer, denom * that.denom)
+  def *(that: Int): Rational = this * new Rational(that)
+  def /(that: Rational): Rational = new Rational(numer * that.denom, denom * that.numer)
+  def /(that: Int): Rational = this / new Rational(that)
+  def ==(that: Rational): Boolean = numer == that.numer && denom == that.denom
+  def ==(that: Int): Boolean = this == new Rational(that)
+  override def toString: String = numer + "/" + denom
+}
+val r1 = new Rational(2,3)
+r1.toString == "2/3"
+val r2 = new Rational(3,9)
+r2.toString == "1/3"
+r1 + r2 == new Rational(1)
+r1 + 1 == new Rational(5,3)
+r1 * 3 + r2 * 3 == new Rational(3) // operator precedence holds
+
+/*
+Implicit conversions can be used to convert one type to another. Any time the type is used when the other is expected, the function will be called with the value.
+While useful, implicit conversions should be used sparingly.
+ */
+implicit def intToRational(x: Int): Rational = new Rational(x)
+r1 * 3 == 2 // this worked before
+3 * r1 ==  2 // this works because of the implicit def
+
+/*
+---
+Chapter 7: Built-in Control Structures
+
+Scala has minimal control structures, most of which return a value.
+If statements can be used in a ternary fashion to return a value. If statements without an else branch cannot have the returned type, since they do not always return a value of that type.
+ */
+val ifElseVal = if (true) "true" else "false" // type is String
+val ifElseVal2 = if (true) true else "false" // type is Any
+val ifVal = if (false) "false" // type is Any
+/*
+While loops and do-while loops are useful for iteration.
+While loops follow a more imperative style, but sometimes provide more readable solutions.
+ */
+var count = 3
+while(count > 0) {
+  print(count + " ")
+  count -= 1
+}
+count = 0
+do {
+  print(count + " ")
+  count -= 1
+} while (count > 0)
+println()
+/*
+For expressions enable many different kinds of enumeration:
+  - iteration over entire collections
+  - iteration over collections with a filter
+  - nested iteration
+  - creating a new collection
+ */
+val numList = List(1,2,3,4,5,6)
+for (x <- numList) println(x); // prints 1 through 6
+for (x <- numList; if x % 2 == 0) println(x); // prints 2, 4, and 6
+for (x <- numList; if x % 2 == 0; if x != 4) println(x); // prints 2 and 6
+for {
+  x <- numList
+  if x % 2 == 0
+  if x != 4
+} println(x) // curly braces can be used in place of parentheses, in this case to avoid use of semicolons
+
+val listList = List(List(1,2,3),List(4,5), List(6,7,8))
+for {
+  list <- listList
+  if list.length > 2
+  num <- list
+  if num % 2 == 1
+} println(num) // prints 1, 3, and 7
+for {
+  list <- listList
+  if list.length > 2
+  num <- list
+  if num % 2 == 1
+} yield num // returns a list containing 1, 3, and 7. The collection type is based on the collection iterated over.
+/*
+Try expressions call code which may throw exceptions.
+The try block is a set of statements to execute, a catch block catches any thrown exceptions, and a finally block is code to always execute even if an exception is thrown.
+The catch block uses pattern matching to identify specific exception types. They can also yield values.
+It is not required, like in Java, to indicate that a method throws an exception.
+ */
+val exceptionResult =
+  try {
+    println("executing risky code")
+    throw new NullPointerException
+    "not an NPE"
+  } catch {
+    case ex : NullPointerException => "NPE" // this becomes the result
+  } finally {
+    println("call complete, exceptions handled")
+  }
+/*
+An explicit return statement in the finally block will override any other return value.
+ */
+def finally1(): Int = try { 1 } finally { 2 }
+def finally2(): Int = try { 1 } finally { return 2 }
+finally1() == 1
+finally2() == 2
+/*
+Match expressions allow for pattern matching based on types and values. They are similar to switch statements, but more powerful.
+ */
+def matchFn(x: Any): String = x match {
+  case x:Int if x > 100 => "It's a large Int"
+  case x:Int => "It's an Int"
+  case x:String => "It's a String"
+  case _ => "It's something else" // default case
+}
+matchFn(500) // "It's a large Int"
+matchFn(5) // "It's an Int"
+matchFn("dogs") // "It's a String"
+matchFn(Nil) // "It's something else"
