@@ -356,3 +356,72 @@ matchFn(500) // "It's a large Int"
 matchFn(5) // "It's an Int"
 matchFn("dogs") // "It's a String"
 matchFn(Nil) // "It's something else"
+
+/*
+---
+Chapter 8: Functions and Closures
+
+Scala offers in the way of functions than Java, such as nested functions, function literals, and using functions as values.
+
+Methods are the traditional approach to functions. They exist as members of a class.
+*/
+object methodApproach {
+  var multiplier = 2
+  def mainMethod(): Int = {
+    helperMethod(21)
+  }
+  def helperMethod(x: Int): Int = x*multiplier
+}
+/*
+Nested functions allow helper functions to be encapsulated within the function that uses them, which avoids namespace collisions and clutter.
+ */
+def nestedMainFunction(): Int = {
+  val multiplier = 2
+  def helperFunction(x: Int): Int = x*multiplier // anything within a parent block is in scope in a nested function
+  helperFunction(21)
+}
+/*
+First-class functions allow functions to be treated as values (i.e. as parameters to other functions).
+First-class functions can be written as function literals. They can be stored in variables.
+Parameter types can be inferred by the compiler when they are obvious (e.g. when a literal is being passed as a function of type (Int) => Int, its parameter type is inferred to be Int).
+ */
+def invoke(func: (Int)=>Int, x: Int): Int = func(x)
+invoke((x) => x*x, 8) == 64 // the parameter type of the function is inferred
+val multiplyByTwo = (x: Int) => x*2
+invoke(multiplyByTwo, 21) == 42
+/*
+Placeholder syntax uses underscores as placeholders for parameters, and can allow for more concise code. Sometimes the types of the placeholders need to be specified.
+ */
+List(1,2,3,4,5,6).filter(_ % 2 == 0) == List(2,4,6)
+val checkDouble = (_: Int) * 2 == (_: Int)
+checkDouble(2,4)
+/*
+Partially applied functions create function values with some or none of the parameters of the original function provided.
+ */
+def sum(a: Int, b:Int, c:Int) = a + b + c
+val partial1 = sum _
+partial1(1,2,3) == 6
+val partial2 = sum(1,_ : Int,3)
+partial2(2) == 6 // this function call invokes sum(1, 2, 3)
+/*
+Free variables are unbound, unspecified variables.
+Closures create function values which use the environment at the point of closure creation to close over free variables
+ */
+var multiplier = 3
+val multiplyClosure = (x: Int) => x * multiplier
+multiplyClosure(14) == 42
+multiplier = 6
+multiplyClosure(7) == 42
+/*
+Repeated parameters allow functions to take variable length argument lists, by appending an asterisk to the parameter.
+ */
+def nameList(names: String*) = names.foreach(println)
+nameList("Michael")
+nameList("Alice", "Bob")
+nameList() // nothing
+val nameArr = Array("Jake", "Duke", "Daisy")
+nameList(nameArr: _*) // use arrays as repeated parameters by explicitly typing them as repeated
+/*
+Tail recursive functions call themselves as the last operation of the function.
+The compiler optimizes tail recursive functions as if they just jumped back to the beginning of the function body, rather than overflowing the stack.
+ */
