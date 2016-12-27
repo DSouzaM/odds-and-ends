@@ -361,7 +361,7 @@ matchFn(Nil) // "It's something else"
 ---
 Chapter 8: Functions and Closures
 
-Scala offers in the way of functions than Java, such as nested functions, function literals, and using functions as values.
+Scala offers more in the way of functions than Java, such as nested functions, function literals, and using functions as values.
 
 Methods are the traditional approach to functions. They exist as members of a class.
 */
@@ -381,8 +381,8 @@ def nestedMainFunction(): Int = {
   helperFunction(21)
 }
 /*
-First-class functions allow functions to be treated as values (i.e. as parameters to other functions).
-First-class functions can be written as function literals. They can be stored in variables.
+First-class functions allow functions to be treated as values (i.e. as variables or parameters to other functions).
+First-class functions can be written as function literals.
 Parameter types can be inferred by the compiler when they are obvious (e.g. when a literal is being passed as a function of type (Int) => Int, its parameter type is inferred to be Int).
  */
 def invoke(func: (Int)=>Int, x: Int): Int = func(x)
@@ -401,11 +401,11 @@ Partially applied functions create function values with some or none of the para
 def sum(a: Int, b:Int, c:Int) = a + b + c
 val partial1 = sum _
 partial1(1,2,3) == 6
-val partial2 = sum(1,_ : Int,3)
+val partial2 = sum(1, _ : Int ,3)
 partial2(2) == 6 // this function call invokes sum(1, 2, 3)
 /*
 Free variables are unbound, unspecified variables.
-Closures create function values which use the environment at the point of closure creation to close over free variables
+Closures create function values which use the environment at the point of closure creation to "close" over any free variables.
  */
 var multiplier = 3
 val multiplyClosure = (x: Int) => x * multiplier
@@ -425,3 +425,59 @@ nameList(nameArr: _*) // use arrays as repeated parameters by explicitly typing 
 Tail recursive functions call themselves as the last operation of the function.
 The compiler optimizes tail recursive functions as if they just jumped back to the beginning of the function body, rather than overflowing the stack.
  */
+
+/*
+---
+Chapter 9: Control Abstraction
+
+Higher order functions can help reduce code duplication. When you have many similar functions, sometimes writing one function which takes a function value as a parameter can reduce code clutter.
+ */
+val stringList = List("Hulk", "Dr. Strange", "Tony Stark")
+def matchStrings(matcher: (String) => Boolean) = {
+  // extra code to open file, query DB, etc.
+  stringList.filter(matcher)
+}
+def matchEnds(end: String) = matchStrings(_.endsWith(end)) // equivalent to (str: String) => str.endsWith(end)
+def matchContains(substr: String) = matchStrings(_.contains(substr))
+def matchRegexs(regex: String) = matchStrings(_.matches(regex))
+/*
+Scala's API supports helps reduce code duplication, especially with the use of higher-order functions.
+The collections classes, for example, support an "exists" method which handles iteration over elements and testing each of them against some function. Since the iteration is handled, the client must simply provide a function as parameter.
+ */
+List(1,2,3,4,5,6).exists((x:Int) => x * 2 == 4)
+!List("This", "is", "a", "list", "of", "strings").exists(_.length == 5)
+/*
+Curried functions have multiple argument lists.
+ */
+def uncurriedAdd(a: Int, b: Int): Int = a + b
+def curriedAdd(a: Int)(b: Int): Int = a + b
+uncurriedAdd(40,2) == 42
+curriedAdd(40)(2) == 42
+val curriedResult = curriedAdd(40)_ // returns the "second" function which takes a single Int, returning the sum of it with 40
+curriedResult(2) == 42
+curriedResult(-40) == 0
+/*
+Curried functions allow you to implement your own control structures.
+Since parameter lists can be surrounded by curly braces instead of parentheses, these structures can look very similar to native structures
+ */
+import java.io.PrintWriter
+import java.io.File
+def withPrintWriter(file: File)(op: PrintWriter => Unit): Unit = {
+  val writer = new PrintWriter(file)
+  try {
+    op(writer)
+  } finally {
+    writer.close()
+  }
+}
+//withPrintWriter(new File("example.txt")) {
+//  printWriter => printWriter.print("This function body looks similar to the body of a built-in control structure.")
+//
+/*
+By-name parameters allow you to create parameter functions which take no arguments and are not evaluated until their first usage.
+ */
+var assertsEnabled = true
+def byNameAssert(predicate: => Boolean) = if (assertsEnabled && !predicate) throw new AssertionError // no parameters specified
+byNameAssert(5 > 3) // no function literal notation needed
+assertsEnabled = false
+byNameAssert(throw new Exception) // exception never thrown, since expression not evaluated until first use
