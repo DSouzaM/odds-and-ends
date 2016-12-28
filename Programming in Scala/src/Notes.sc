@@ -472,7 +472,7 @@ def withPrintWriter(file: File)(op: PrintWriter => Unit): Unit = {
 }
 //withPrintWriter(new File("example.txt")) {
 //  printWriter => printWriter.print("This function body looks similar to the body of a built-in control structure.")
-//
+//}
 /*
 By-name parameters allow you to create parameter functions which take no arguments and are not evaluated until their first usage.
  */
@@ -481,3 +481,123 @@ def byNameAssert(predicate: => Boolean) = if (assertsEnabled && !predicate) thro
 byNameAssert(5 > 3) // no function literal notation needed
 assertsEnabled = false
 byNameAssert(throw new Exception) // exception never thrown, since expression not evaluated until first use
+
+/*
+---
+Chapter 10: Composition and Inheritance
+
+In this chapter, the author builds a sample library for constructing and rendering layout elements in 2 dimensions.
+
+Abstract classes have one or more methods with no implementation provided, and must be defined with the "abstract" keyword. They are not instantiable.
+Concrete methods are referred to as "defined" while abstract methods are "declared".
+
+Methods which take no parameters and do not change state omit the parentheses; this supports the Uniform Access Principle which says client code should not be affected by the decision to use a field or a method for attributes.
+*/
+abstract class Element {
+  def contents: Array[String]
+  def width: Int = if (contents.isEmpty) 0 else contents(0).length
+  def height: Int = contents.length
+  def above(that: Element): Element = { // must resize to fit largest element
+    val this1 = this widen that.width
+    val that1 = that widen this.width
+    new ArrayElement(this1.contents ++ that1.contents)
+  }
+  def beside(that: Element): Element = {
+    val this1 = this heighten that.height
+    val that1 = that heighten this.height
+    new ArrayElement(
+      for ((line1, line2) <- this1.contents zip that1.contents)
+        yield line1 + line2
+    )
+  }
+
+  override def toString = contents mkString "\n"
+
+  private def widen(w: Int): Element = {
+    if (w <= width) this
+    else {
+      val lpad = (w-width) / 2
+      val rpad = w - (width + lpad)
+      new ArrayElement(
+        for (line <- contents)
+          yield spaces(lpad) + line + spaces(rpad)
+      )
+    }
+  }
+  private def heighten(h: Int): Element = {
+    if (h <= height) this
+    else {
+      val tpad = (h - height) / 2
+      val bpad = h - (height + tpad)
+      new ArrayElement(lines(tpad) ++ contents ++ lines(bpad))
+    }
+  }
+  private def spaces(x: Int) = new String(Array.fill(x)(' '))
+  private def lines(x: Int) = Array.fill(x)("")
+}
+/*
+The methods assert, assume, and require can be used to verify runtime conditions:
+  - assert and assume throw AssertionErrors (assume is typically used by static analysis tools), indicating an error in the code
+  - require throws an IllegalArgumentException, blaming the caller for passing invalid arguments (e.g. passing 0 into (x: Int) => 1/x)
+
+Subclasses are defined using the "extends" modifier, and must either implement the abstract methods or also be abstract.
+Subclasses inherit all members of a superclass except for private members and members overridden by the subclass.
+  - a subclass can also change a parent member from a method to a field (or vice versa)
+Instances of subclasses may be used in any place where an instance of the superclass is expected.
+*/
+class ArrayElement(conts: Array[String]) extends Element {
+  def contents: Array[String] = conts // implementing abstract methods
+}
+class UniformElement(ch: Char, override val width: Int, override val height: Int) extends Element {
+  private val line = new String(Array.fill(width)(ch))
+  def contents = Array.fill(height)(line)
+}
+/*
+Whereas Java has different namespaces for fields, methods, types, and packages, Scala has only two namespaces for values and types.
+
+Class parameter fields can use "val" and "var" to make them class fields; modifiers like "override", "private", and "protected" can also be used.
+ */
+class ArrayElementBetter(val contents: Array[String]) extends Element {}
+/*
+When classes inherit from parameterized parent classes, they must specify the parameters in the signature.
+ */
+class LineElement(s: String) extends ArrayElement(Array(s)) { // Array(s) is used as a parameter to the ArrayElement constructor
+  override def width = s.length
+  override def height = 1
+}
+/*
+If a client defines a subclass with a new member, and later the parent class is updated and contains an identical member, the subclass member would be used erroneously.
+The override modifier prevents this problem: since the client code will contain the same member without the override modifier, the compiler will throw an error.
+
+Factories can be constructed with singleton object or classes.
+ */
+object Element {
+  def elem(contents: Array[String]): Element = new ArrayElement(contents)
+  def elem(line: String): Element =  new LineElement(line)
+  def elem(chr: Char, width: Int, height: Int) = new UniformElement(chr, width, height)
+}
+
+val col1 = Seq("This","is", "the", "left", "column").foldLeft(Element.elem(""))((curr, el) => curr.above(Element.elem(el)))
+val col2 = Seq("This","column","is on the right").foldLeft(Element.elem(""))((curr, el) => curr.above(Element.elem(el)))
+col1.beside(col2)
+/*
+The top of the class hierarchy in Scala is Any. There are two subclasses of Any:
+  - AnyVal, which is the parent of all the built-in value classes (the Java primitives and Unit). AnyVal types support implicit conversions to rich classes which offer more functionality.
+  - AnyRef, which is the parent of all classes. AnyRef is an alias for java.lang.Object, the parent class of all Java classes.
+
+In Scala, == follows natural equality for value types, and aliases the equals method for reference types.
+To specifically compare references, Scala has "eq" and "ne" operators.
+ */
+val str1 = new String("dog")
+val str2 = new String("dog")
+str1 == str2
+!(str1 eq str2)
+str1 ne str2
+/*
+Null is a subclass of every reference type, so any non-value type can be assigned a value of null.
+Nothing is a subclass of every class. Usually, Nothing is used to signify abnormal behaviour.
+ */
+def divide(x: Int, y: Int): Int = {
+  if (y==0) error("divide by zero") // error has a Nothing return type, which is a subclass of Int
+  else x/y
+}

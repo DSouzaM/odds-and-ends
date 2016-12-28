@@ -158,8 +158,397 @@ Line endings are treated as semicolons unless the line ending cannot be the endi
 
 Singleton objects can also be used as the entry point to a Scala application by defining a main method with an argument of type Array[String] and a result type of Unit.
  */
-object example {
+object Example {
   def main(args: Array[String]): Unit = {
     args.foreach(println)
   }
 }
+
+/*
+---
+Chapter 5: Basic Types and Operations
+
+Scala's basic types have the same ranges as Java primitives.
+Rules about literals:
+  - 0x__ is a hex number
+  - 0___ is an octal number
+  - otherwise, a number is decimal
+  - an integer literal ending in l is a Long
+  - a decimal literal ending in f is a Float
+  - character literals are quotes with single quotes
+  - octal characters can be specified with '\#', hex characters can be specified with '\u#'
+
+All operators are methods of the operands' types.
+Infix operators are just method calls with the parameters. Prefix operators are limited to unary +, -, !, and ~.
+ */
+1 + 2l == 1.+(2l)
+val d : String = "Doggies"
+d.indexOf('g') == (d indexOf 'g')
+d.indexOf('g',3) == (d indexOf ('g', 3))
+-2 == 2.unary_-
+d.toLowerCase == (d toLowerCase)
+/*
+The == operator calls the equals() method as long as neither side is null.
+Whereas Java's == checks reference equality for objects, in Scala it compares object equality. The eq and ne operators can be used to check reference equality.
+
+Bitwise operators &, |, ^, and ~ perform AND, OR, XOR, and complementing on bits. << and >> can shift left and right while maintaining sign, while >>> shifts right and fills with zeroes.
+
+To decide operator precedence, Scala prioritizes methods based on the first character in their names (e.g. *** > +++).
+Operators are left-associative (grouped left to right).
+The exception to this is when the operator ends in ":", in which case the operator is right-associative since it is a method call of the right operand with the left operand as argument.
+ */
+5 + 2 * 3 == 5 + (2 * 3)
+1 * 2 * 3 == (1 * 2) * 3
+1 * 2 * 3 == 1.*(2).*(3)
+List(1) :: List(2) :: List(3) == List(1) :: (List(2) :: List(3))
+List(1) :: List(2) == List(2).::(List(1))
+/*
+The basic types have rich wrappers which provide additional functionality.
+ */
+(0 max 5) == 5
+(-2.7 abs) == 2.7
+((1.0/0) isInfinity) == true
+("bob" capitalize) == "Bob"
+
+/*
+---
+Chapter 6: Functional Objects
+
+vals should generally be preferred over vars because they are easier to reason about. Nonetheless, there are still circumstances where it makes more sense to use vars.
+The primary constructor of a class takes the class parameters and executes all statements in the class body.
+Auxiliary constructors can be defined as methods named "this" with different parameters. They must call another constructor as their first statement, so that the primary constructor is the point of entry for a class.
+
+Overriding the toString method defines the way to print an object of a class.
+Private fields can only be accessed from within a class; protected fields can be accessed within a class or within a subclass.
+The "this" keyword can be used to refer to an object or its members, but "this.foo" is equivalent to just "foo" so it's not usually necessary.
+
+In addition to regular alphanumeric identifiers, Scala supports:
+  - operator identifiers (+, :, ?, ~, #, etc.) are ASCII characters which are not letters, digits, or reserved symbols
+  - mixed identifiers (vector_+, success_?, etc.) are alphanumeric identifiers followed by an underscore and an operator identifier
+  - literal identifiers (`x`, `yield`, etc.) are strings wrapped in back-ticks, which can be useful to avoid collision with reserved keywords
+
+Methods can be overloaded with different parameters. Overloading resolution is done to best match the arguments' static types as in Java.
+ */
+class Rational(n: Int, d: Int) {
+  def this(n: Int) = this(n,1) // create rationals without specifying denominator
+
+  private def gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+  private val g = gcd(n, d) // only accessible from within this class
+  val numer: Int = n / g
+  val denom: Int = d / g
+
+  def +(that: Rational): Rational = new Rational(numer * that.denom + that.numer * denom, denom * that.denom)
+  def +(that: Int): Rational = this + new Rational(that)
+  def -(that: Rational): Rational = new Rational(numer * that.denom - that.numer * denom, denom * that.denom)
+  def -(that: Int): Rational = this - new Rational(that)
+  def *(that: Rational): Rational = new Rational(numer * that.numer, denom * that.denom)
+  def *(that: Int): Rational = this * new Rational(that)
+  def /(that: Rational): Rational = new Rational(numer * that.denom, denom * that.numer)
+  def /(that: Int): Rational = this / new Rational(that)
+  def ==(that: Rational): Boolean = numer == that.numer && denom == that.denom
+  def ==(that: Int): Boolean = this == new Rational(that)
+  override def toString: String = numer + "/" + denom
+}
+val r1 = new Rational(2,3)
+r1.toString == "2/3"
+val r2 = new Rational(3,9)
+r2.toString == "1/3"
+r1 + r2 == new Rational(1)
+r1 + 1 == new Rational(5,3)
+r1 * 3 + r2 * 3 == new Rational(3) // operator precedence holds
+
+/*
+Implicit conversions can be used to convert one type to another. Any time the type is used when the other is expected, the function will be called with the value.
+While useful, implicit conversions should be used sparingly.
+ */
+implicit def intToRational(x: Int): Rational = new Rational(x)
+r1 * 3 == 2 // this worked before
+3 * r1 ==  2 // this works because of the implicit def
+
+/*
+---
+Chapter 7: Built-in Control Structures
+
+Scala has minimal control structures, most of which return a value.
+If statements can be used in a ternary fashion to return a value. If statements without an else branch cannot have the returned type, since they do not always return a value of that type.
+ */
+val ifElseVal = if (true) "true" else "false" // type is String
+val ifElseVal2 = if (true) true else "false" // type is Any
+val ifVal = if (false) "false" // type is Any
+/*
+While loops and do-while loops are useful for iteration.
+While loops follow a more imperative style, but sometimes provide more readable solutions.
+ */
+var count = 3
+while(count > 0) {
+  print(count + " ")
+  count -= 1
+}
+count = 0
+do {
+  print(count + " ")
+  count -= 1
+} while (count > 0)
+println()
+/*
+For expressions enable many different kinds of enumeration:
+  - iteration over entire collections
+  - iteration over collections with a filter
+  - nested iteration
+  - creating a new collection
+ */
+val numList = List(1,2,3,4,5,6)
+for (x <- numList) println(x); // prints 1 through 6
+for (x <- numList; if x % 2 == 0) println(x); // prints 2, 4, and 6
+for (x <- numList; if x % 2 == 0; if x != 4) println(x); // prints 2 and 6
+for {
+  x <- numList
+  if x % 2 == 0
+  if x != 4
+} println(x) // curly braces can be used in place of parentheses, in this case to avoid use of semicolons
+
+val listList = List(List(1,2,3),List(4,5), List(6,7,8))
+for {
+  list <- listList
+  if list.length > 2
+  num <- list
+  if num % 2 == 1
+} println(num) // prints 1, 3, and 7
+for {
+  list <- listList
+  if list.length > 2
+  num <- list
+  if num % 2 == 1
+} yield num // returns a list containing 1, 3, and 7. The collection type is based on the collection iterated over.
+/*
+Try expressions call code which may throw exceptions.
+The try block is a set of statements to execute, a catch block catches any thrown exceptions, and a finally block is code to always execute even if an exception is thrown.
+The catch block uses pattern matching to identify specific exception types. They can also yield values.
+It is not required, like in Java, to indicate that a method throws an exception.
+ */
+val exceptionResult =
+  try {
+    println("executing risky code")
+    throw new NullPointerException
+    "not an NPE"
+  } catch {
+    case ex : NullPointerException => "NPE" // this becomes the result
+  } finally {
+    println("call complete, exceptions handled")
+  }
+/*
+An explicit return statement in the finally block will override any other return value.
+ */
+def finally1(): Int = try { 1 } finally { 2 }
+def finally2(): Int = try { 1 } finally { return 2 }
+finally1() == 1
+finally2() == 2
+/*
+Match expressions allow for pattern matching based on types and values. They are similar to switch statements, but more powerful.
+ */
+def matchFn(x: Any): String = x match {
+  case x:Int if x > 100 => "It's a large Int"
+  case x:Int => "It's an Int"
+  case x:String => "It's a String"
+  case _ => "It's something else" // default case
+}
+matchFn(500) // "It's a large Int"
+matchFn(5) // "It's an Int"
+matchFn("dogs") // "It's a String"
+matchFn(Nil) // "It's something else"
+
+/*
+---
+Chapter 8: Functions and Closures
+
+Scala offers more in the way of functions than Java, such as nested functions, function literals, and using functions as values.
+
+Methods are the traditional approach to functions. They exist as members of a class.
+*/
+object methodApproach {
+  var multiplier = 2
+  def mainMethod(): Int = {
+    helperMethod(21)
+  }
+  def helperMethod(x: Int): Int = x*multiplier
+}
+/*
+Nested functions allow helper functions to be encapsulated within the function that uses them, which avoids namespace collisions and clutter.
+ */
+def nestedMainFunction(): Int = {
+  val multiplier = 2
+  def helperFunction(x: Int): Int = x*multiplier // anything within a parent block is in scope in a nested function
+  helperFunction(21)
+}
+/*
+First-class functions allow functions to be treated as values (i.e. as variables or parameters to other functions).
+First-class functions can be written as function literals.
+Parameter types can be inferred by the compiler when they are obvious (e.g. when a literal is being passed as a function of type (Int) => Int, its parameter type is inferred to be Int).
+ */
+def invoke(func: (Int)=>Int, x: Int): Int = func(x)
+invoke((x) => x*x, 8) == 64 // the parameter type of the function is inferred
+val multiplyByTwo = (x: Int) => x*2
+invoke(multiplyByTwo, 21) == 42
+/*
+Placeholder syntax uses underscores as placeholders for parameters, and can allow for more concise code. Sometimes the types of the placeholders need to be specified.
+ */
+List(1,2,3,4,5,6).filter(_ % 2 == 0) == List(2,4,6)
+val checkDouble = (_: Int) * 2 == (_: Int)
+checkDouble(2,4)
+/*
+Partially applied functions create function values with some or none of the parameters of the original function provided.
+ */
+def sum(a: Int, b:Int, c:Int) = a + b + c
+val partial1 = sum _
+partial1(1,2,3) == 6
+val partial2 = sum(1, _ : Int ,3)
+partial2(2) == 6 // this function call invokes sum(1, 2, 3)
+/*
+Free variables are unbound, unspecified variables.
+Closures create function values which use the environment at the point of closure creation to "close" over any free variables.
+ */
+var multiplier = 3
+val multiplyClosure = (x: Int) => x * multiplier
+multiplyClosure(14) == 42
+multiplier = 6
+multiplyClosure(7) == 42
+/*
+Repeated parameters allow functions to take variable length argument lists, by appending an asterisk to the parameter.
+ */
+def nameList(names: String*) = names.foreach(println)
+nameList("Michael")
+nameList("Alice", "Bob")
+nameList() // nothing
+val nameArr = Array("Jake", "Duke", "Daisy")
+nameList(nameArr: _*) // use arrays as repeated parameters by explicitly typing them as repeated
+/*
+Tail recursive functions call themselves as the last operation of the function.
+The compiler optimizes tail recursive functions as if they just jumped back to the beginning of the function body, rather than overflowing the stack.
+ */
+
+/*
+---
+Chapter 9: Control Abstraction
+
+Higher order functions can help reduce code duplication. When you have many similar functions, sometimes writing one function which takes a function value as a parameter can reduce code clutter.
+ */
+val stringList = List("Hulk", "Dr. Strange", "Tony Stark")
+def matchStrings(matcher: (String) => Boolean) = {
+  // extra code to open file, query DB, etc.
+  stringList.filter(matcher)
+}
+def matchEnds(end: String) = matchStrings(_.endsWith(end)) // equivalent to (str: String) => str.endsWith(end)
+def matchContains(substr: String) = matchStrings(_.contains(substr))
+def matchRegexs(regex: String) = matchStrings(_.matches(regex))
+/*
+Scala's API supports helps reduce code duplication, especially with the use of higher-order functions.
+The collections classes, for example, support an "exists" method which handles iteration over elements and testing each of them against some function. Since the iteration is handled, the client must simply provide a function as parameter.
+ */
+List(1,2,3,4,5,6).exists((x:Int) => x * 2 == 4)
+!List("This", "is", "a", "list", "of", "strings").exists(_.length == 5)
+/*
+Curried functions have multiple argument lists.
+ */
+def uncurriedAdd(a: Int, b: Int): Int = a + b
+def curriedAdd(a: Int)(b: Int): Int = a + b
+uncurriedAdd(40,2) == 42
+curriedAdd(40)(2) == 42
+val curriedResult = curriedAdd(40)_ // returns the "second" function which takes a single Int, returning the sum of it with 40
+curriedResult(2) == 42
+curriedResult(-40) == 0
+/*
+Curried functions allow you to implement your own control structures.
+Since parameter lists can be surrounded by curly braces instead of parentheses, these structures can look very similar to native structures
+ */
+import java.io.PrintWriter
+import java.io.File
+def withPrintWriter(file: File)(op: PrintWriter => Unit): Unit = {
+  val writer = new PrintWriter(file)
+  try {
+    op(writer)
+  } finally {
+    writer.close()
+  }
+}
+//withPrintWriter(new File("example.txt")) {
+//  printWriter => printWriter.print("This function body looks similar to the body of a built-in control structure.")
+//}
+/*
+By-name parameters allow you to create parameter functions which take no arguments and are not evaluated until their first usage.
+ */
+var assertsEnabled = true
+def byNameAssert(predicate: => Boolean) = if (assertsEnabled && !predicate) throw new AssertionError // no parameters specified
+byNameAssert(5 > 3) // no function literal notation needed
+assertsEnabled = false
+byNameAssert(throw new Exception) // exception never thrown, since expression not evaluated until first use
+
+/*
+---
+Chapter 10: Composition and Inheritance
+
+In this chapter, the author builds a sample library for constructing and rendering layout elements in 2 dimensions.
+
+Abstract classes have one or more methods with no implementation provided, and must be defined with the "abstract" keyword. They are not instantiable.
+Concrete methods are referred to as "defined" while abstract methods are "declared".
+
+Methods which take no parameters and do not change state omit the parentheses; this supports the Uniform Access Principle which says client code should not be affected by the decision to use a field or a method for attributes.
+*/
+abstract class Element {
+  def contents: Array[String]
+  def width: Int = if (contents.isEmpty) 0 else contents(0).length
+  def height: Int = contents.length
+  def above(that: Element): Element = { // must resize to fit largest element
+    val this1 = this widen that.width
+    val that1 = that widen this.width
+    new ArrayElement(this1.contents ++ that1.contents)
+  }
+  def beside(that: Element): Element = {
+    val this1 = this heighten that.height
+    val that1 = that heighten this.height
+    new ArrayElement(
+      for ((line1, line2) <- this)
+    )
+  }
+
+
+  private def widen(w: Int): Element = {
+    if (w <= width) this
+    else {
+      val lpad = (w-width) / 2
+      val rpad = w - (width + lpad)
+      new ArrayElement(
+        for (line <- contents)
+          yield spaces(lpad) + line + spaces(rpad)
+      )
+    }
+  }
+  private def heighten(h: Int): Element = {
+    if (h <= height) this
+    else {
+      val tpad = (h - height) / 2
+      val bpad = h - (height + tpad)
+      new ArrayElement
+    }
+  }
+  private def spaces(x: Int) = new String(Array.fill(x)(' '))
+  private def lines(x: Int) = Array.fill(x)("")
+}
+/*
+The methods assert, assume, and require can be used to verify runtime conditions:
+  - assert and assume throw AssertionErrors (assume is typically used by static analysis tools), indicating an error in the code
+  - require throws an IllegalArgumentException, blaming the caller for passing invalid arguments (e.g. passing 0 into (x: Int) => 1/x)
+
+Subclasses are defined using the "extends" modifier, and must either implement the abstract methods or also be abstract.
+Subclasses inherit all members of a superclass except for private members and members overridden by the subclass.
+  - a subclass can also change a parent member from a method to a field (or vice versa)
+Instances of subclasses may be used in any place where an instance of the superclass is expected.
+*/
+class ArrayElement(conts: Array[String]) extends Element {
+  def contents: Array[String] = conts // implementing abstract methods
+}
+/*
+Whereas Java has different namespaces for fields, methods, types, and packages, Scala has only two namespaces for values and types.
+
+Class parameter fields can use "val" and "var" to make them class fields; modifiers like "override", "private", and "protected" can also be used.
+ */
+class ArrayElementBetter(val contents: Array[String]) extends Element {}
