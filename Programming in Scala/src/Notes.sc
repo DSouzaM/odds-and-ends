@@ -117,7 +117,7 @@ The "fsc" command can be used instead of "scalac" to create a background process
 The entry point of Scala programs is a "main" method with an array of Strings as parameter within a standalone object. Alternatively, an object can extend the "App" trait.
 
 Scala traits are similar to Java interfaces. The methods defined in a trait can abstract (as in Java), or explicitly defined.
-A class can extend one other class, and extend many traits.
+A class can extend one other class, and have many traits.
 When overriding a method of a superclass, the keyword "override" is used.
  */
 trait Shape {
@@ -142,6 +142,7 @@ trait SquigglyShape extends Shape {
 val squigglySquare : Shape = new Square with SquigglyShape
 squigglySquare.draw() == "~[]~"
 
+
 /*
 ---
 Chapter 4: Classes and Objects
@@ -163,6 +164,7 @@ object Example {
     args.foreach(println)
   }
 }
+
 
 /*
 ---
@@ -209,6 +211,7 @@ The basic types have rich wrappers which provide additional functionality.
 (-2.7 abs) == 2.7
 ((1.0/0) isInfinity) == true
 ("bob" capitalize) == "Bob"
+
 
 /*
 ---
@@ -264,6 +267,7 @@ While useful, implicit conversions should be used sparingly.
 implicit def intToRational(x: Int): Rational = new Rational(x)
 r1 * 3 == 2 // this worked before
 3 * r1 ==  2 // this works because of the implicit def
+
 
 /*
 ---
@@ -357,6 +361,7 @@ matchFn(5) // "It's an Int"
 matchFn("dogs") // "It's a String"
 matchFn(Nil) // "It's something else"
 
+
 /*
 ---
 Chapter 8: Functions and Closures
@@ -426,6 +431,7 @@ Tail recursive functions call themselves as the last operation of the function.
 The compiler optimizes tail recursive functions as if they just jumped back to the beginning of the function body, rather than overflowing the stack.
  */
 
+
 /*
 ---
 Chapter 9: Control Abstraction
@@ -481,6 +487,7 @@ def byNameAssert(predicate: => Boolean) = if (assertsEnabled && !predicate) thro
 byNameAssert(5 > 3) // no function literal notation needed
 assertsEnabled = false
 byNameAssert(throw new Exception) // exception never thrown, since expression not evaluated until first use
+
 
 /*
 ---
@@ -601,3 +608,106 @@ def divide(x: Int, y: Int): Int = {
   if (y==0) error("divide by zero") // error has a Nothing return type, which is a subclass of Int
   else x/y
 }
+
+
+/*
+---
+Chapter 11: Traits and Mixins
+
+Traits are analogous to Java interfaces. A class can have multiple traits.
+Like with inheritance, a class which has a trait inherits methods and fields from that trait, and an instance of that class can be used where an instance of the trait is expected.
+When a class inherits another class, traits are specified using the "with" keyword. If there is no inherited class, the trait is specified with "extends"
+ */
+trait Printable {
+  def print() = println(this)
+}
+trait Excited {
+  override def toString = super.toString + "!"
+}
+class Frog extends Printable {
+  override def toString = "I am a frog"
+}
+val frog = new Frog
+frog.print() // "I am a frog"
+val excitedFrog = new Frog with Excited // trait mixin at instantiation
+excitedFrog.print() // "I am a frog!"
+/*
+Java interfaces cannot define concrete methods. This makes it difficult to make "thick" interfaces with many methods, since a class must implement every method of an interface it implements.
+Scala traits allow for concrete methods to be defined within traits, allowing for thicker interfaces.
+
+The Ordered trait is a good example of where traits do much better for thick interfaces.
+Other than equality, there are four main comparison operators (<, >, <=, >=), all of which can be implemented in terms of a single less-than (or greater-than) function.
+The Ordered trait declares an abstract comparison method, and then defines concrete methods for each operator using the comparison method, so you only need to implement one method.
+Equaliity is not defined by the Ordered trait.
+
+Traits can be used to optimize efficiency, for example by caching the hashCode so it must only be computed once.
+The order that traits are included is important; each consecutive trait overrides any methods of the previous.
+ */
+abstract class BaseBookShelf(books: List[String]) {
+  override def hashCode = {
+    books.map(_.hashCode).sum
+  }
+}
+trait HashCaching {
+  private var cachedHash: Int = 0
+  private var hashComputed: Boolean = false
+  override def hashCode = {
+    if (!hashComputed) {
+      cachedHash = super.hashCode
+      hashComputed = true
+    }
+    cachedHash
+  }
+}
+trait HashScrambling {
+  override def hashCode = {
+    val original = super.hashCode
+    def rl(i: Int) = Integer.rotateLeft(original, i)
+    original ^ rl(8) ^ rl(16) ^ rl(24)
+  }
+}
+// if HashCaching was specified before HashScrambling, then the unscrambled hash would be cached instead of the scrambled version - order matters
+class BookShelf(val books: List[String]) extends BaseBookShelf(books) with Ordered[BookShelf] with HashScrambling with HashCaching {
+  def compare(that: BookShelf): Int = this.books.length - that.books.length
+  def equals(that: BookShelf): Boolean = compare(that) == 0
+}
+val smallShelf = new BookShelf(List("Lord of the Rings", "The Hobbit"))
+val largeShelf = new BookShelf(List("A Game of Thrones", "Harry Potter", "Programming in Scala"))
+smallShelf < largeShelf
+!(smallShelf == largeShelf)
+/*
+A trait can extend another class; what this means is that a class which mixes the trait in must extend the parent of the trait.
+Traits may also define abstract methods which can be called from other traits if another trait has already given a concrete definition for the method.
+ */
+trait Talker {
+  def talk: String
+}
+trait Loud extends Talker {
+  abstract override def talk: String = super.talk.toUpperCase + "!!!"
+}
+trait Repetitive extends Talker {
+  abstract override def talk: String = super.talk + " " + super.talk
+}
+class FoodServer extends Talker {
+  def talk: String = "Anything to drink for you?"
+}
+(new FoodServer).talk == "Anything to drink for you?"
+(new FoodServer with Loud).talk == "ANYTHING TO DRINK FOR YOU?!!!"
+(new FoodServer with Repetitive).talk == "Anything to drink for you? Anything to drink for you?"
+(new FoodServer with Loud with Repetitive).talk == "ANYTHING TO DRINK FOR YOU?!!! ANYTHING TO DRINK FOR YOU?!!!"
+(new FoodServer with Repetitive with Loud).talk == "ANYTHING TO DRINK FOR YOU? ANYTHING TO DRINK FOR YOU?!!!" // ordering matters
+/*
+Trait linearization is the process of resolving method invocations in the correct order based on the mixin order of traits. Traits avoid issues that exist with multiple inheritance.
+Linearization is complicated, but the general rule is that a class is linearized before all of its superclasses and mixed-in traits.
+ */
+class Sup
+trait Trait1 extends Sup
+trait Trait2 extends Sup with Trait3
+trait Trait3
+class C extends Sup with Trait1 with Trait2
+/*
+Linearization of C: C -> Trait2 -> Trait3 -> Trait1 -> Sup -> AnyRef -> Any
+C is the class being linearized, so it starts with C. Then, Trait2 is the last mixed in trait, so it has highest precedence.
+Trait2 mixes in Trait3, so next is Trait3. Trait2 extends Sup, but Sup is extended by C, so it is not next.
+Returning to C, Trait1 is the previous trait mixed in, so it is next. Then, Sup is next, followed by its parent classes.
+ */
