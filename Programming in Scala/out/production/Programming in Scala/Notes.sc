@@ -843,3 +843,98 @@ val pf: PartialFunction[String, String] = {
 }
 pf.isDefinedAt("green")
 !pf.isDefinedAt("yellow")
+/*
+Pattern matching also works with for expressions.
+ */
+val reverseTranslations = for ((english, french) <- translations) yield french -> english
+reverseTranslations("bleu") == "blue"
+val options = List(Some("apple"), None, Some("orange"))
+(for (Some(option) <- options) yield option) == List("apple", "orange")
+
+
+/*
+---
+Chapter 13: Packages and Imports
+
+Code can be split into packages like in Java, but Scala packages allow you to nest code within packages using curly braces.
+*/
+/*
+package notes {
+  package pckg {
+    package tests {
+      object Test1 {
+        val x = 42
+        val y = 77
+      }
+    }
+    // access Test1 as tests.Test1
+    // access Test2 as notes.tests.Test2
+    // access Test3 as _root_.tests.Test3
+  }
+  package tests {
+    object Test2 {}
+  }
+}
+package tests {
+  object Test3 {}
+}*/
+/*
+Imports are more versatile in Scala:
+  - imports can be written anywhere in the file
+  - imports may refer to singleton objects
+  - imports can rename or hide imported members
+
+Imports can import objects/classes/traits directly, or import all members of a package/object using underscores.
+  - import pckg.A -> use A from pckg as "A"
+  - import pckg -> use any member X of pckg as "pckg.X"
+  - import pckg._ -> use any member X of pckg as "X"
+  - import pckg.Object._ -> use any member X of Object as "X"
+  - import pckg.{A,B} -> import just A and B from pckg
+  - import pckg.{A => RenamedA, B} -> import A and B from pckg, but rename A
+  - import pckg.{_} -> import all members of pckg, as above
+  - import pckg.{A => RenamedA, _} -> import all members of pckg, but rename A
+  - import pckg.{A => _, _} -> import all members of pckg, except A.
+ */
+/*
+Access modifiers restrict access to members of packages, classes, and objects.
+  - Private members are only accessible within the same class/object.
+    - In Java, an outer class can access private members of an inner class, but this is not permitted in Scala.
+  - Protected members are accessible within the same class/object and in any subclasses.
+  - All members not specified private or protected are public by default, and are accessible anywhere.
+
+Access modifiers can specify the outermost package/class from which they are visible
+  - private[X] means that the member is visible anywhere in package/class X, but private elsewhere.
+  - private[this] means the member is "object-private". This means the member is only visible within that instance of the class (and not other instances)
+ */
+/*
+package top {
+  package pckg {
+    private[top] class PckgClass { // PckgClass is visible anywhere in the top package
+      class SubClass {
+        private[PckgClass] val field = 42 // field is visible anywhere in PckgClass
+      }
+      private[this] val field = 43 // field is visible from this instance of PckgClass
+    }
+  }
+  package tests {
+    object Test {
+      private[tests] val pckgClassInstance = new PckgClass // pckgClassInstance is visible anywhere in the tests package
+    }
+  }}
+ */
+/*
+Companion objects and classes share their access rights.
+ */
+class Rocket(val fuel: Double) {
+  def canGetHome = Rocket.deltaV(fuel) < 50 // access to private member of companion object
+}
+object Rocket {
+  def deltaV(fuel: Double) = 42
+  def chooseStrategy(rocket: Rocket): String = {
+    if (rocket.canGetHome) { // access to private member of class
+      "go home"
+    } else {
+      "find a star"
+    }
+  }
+}
