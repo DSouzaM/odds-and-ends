@@ -117,7 +117,7 @@ The "fsc" command can be used instead of "scalac" to create a background process
 The entry point of Scala programs is a "main" method with an array of Strings as parameter within a standalone object. Alternatively, an object can extend the "App" trait.
 
 Scala traits are similar to Java interfaces. The methods defined in a trait can abstract (as in Java), or explicitly defined.
-A class can extend one other class, and extend many traits.
+A class can extend one other class, and have many traits.
 When overriding a method of a superclass, the keyword "override" is used.
  */
 trait Shape {
@@ -142,6 +142,7 @@ trait SquigglyShape extends Shape {
 val squigglySquare : Shape = new Square with SquigglyShape
 squigglySquare.draw() == "~[]~"
 
+
 /*
 ---
 Chapter 4: Classes and Objects
@@ -163,6 +164,7 @@ object Example {
     args.foreach(println)
   }
 }
+
 
 /*
 ---
@@ -209,6 +211,7 @@ The basic types have rich wrappers which provide additional functionality.
 (-2.7 abs) == 2.7
 ((1.0/0) isInfinity) == true
 ("bob" capitalize) == "Bob"
+
 
 /*
 ---
@@ -264,6 +267,7 @@ While useful, implicit conversions should be used sparingly.
 implicit def intToRational(x: Int): Rational = new Rational(x)
 r1 * 3 == 2 // this worked before
 3 * r1 ==  2 // this works because of the implicit def
+
 
 /*
 ---
@@ -357,6 +361,7 @@ matchFn(5) // "It's an Int"
 matchFn("dogs") // "It's a String"
 matchFn(Nil) // "It's something else"
 
+
 /*
 ---
 Chapter 8: Functions and Closures
@@ -426,6 +431,7 @@ Tail recursive functions call themselves as the last operation of the function.
 The compiler optimizes tail recursive functions as if they just jumped back to the beginning of the function body, rather than overflowing the stack.
  */
 
+
 /*
 ---
 Chapter 9: Control Abstraction
@@ -482,6 +488,7 @@ byNameAssert(5 > 3) // no function literal notation needed
 assertsEnabled = false
 byNameAssert(throw new Exception) // exception never thrown, since expression not evaluated until first use
 
+
 /*
 ---
 Chapter 10: Composition and Inheritance
@@ -506,10 +513,12 @@ abstract class Element {
     val this1 = this heighten that.height
     val that1 = that heighten this.height
     new ArrayElement(
-      for ((line1, line2) <- this)
+      for ((line1, line2) <- this1.contents zip that1.contents)
+        yield line1 + line2
     )
   }
 
+  override def toString = contents mkString "\n"
 
   private def widen(w: Int): Element = {
     if (w <= width) this
@@ -527,7 +536,7 @@ abstract class Element {
     else {
       val tpad = (h - height) / 2
       val bpad = h - (height + tpad)
-      new ArrayElement
+      new ArrayElement(lines(tpad) ++ contents ++ lines(bpad))
     }
   }
   private def spaces(x: Int) = new String(Array.fill(x)(' '))
@@ -546,9 +555,291 @@ Instances of subclasses may be used in any place where an instance of the superc
 class ArrayElement(conts: Array[String]) extends Element {
   def contents: Array[String] = conts // implementing abstract methods
 }
+class UniformElement(ch: Char, override val width: Int, override val height: Int) extends Element {
+  private val line = new String(Array.fill(width)(ch))
+  def contents = Array.fill(height)(line)
+}
 /*
 Whereas Java has different namespaces for fields, methods, types, and packages, Scala has only two namespaces for values and types.
 
 Class parameter fields can use "val" and "var" to make them class fields; modifiers like "override", "private", and "protected" can also be used.
  */
 class ArrayElementBetter(val contents: Array[String]) extends Element {}
+/*
+When classes inherit from parameterized parent classes, they must specify the parameters in the signature.
+ */
+class LineElement(s: String) extends ArrayElement(Array(s)) { // Array(s) is used as a parameter to the ArrayElement constructor
+  override def width = s.length
+  override def height = 1
+}
+/*
+If a client defines a subclass with a new member, and later the parent class is updated and contains an identical member, the subclass member would be used erroneously.
+The override modifier prevents this problem: since the client code will contain the same member without the override modifier, the compiler will throw an error.
+
+Factories can be constructed with singleton object or classes.
+ */
+object Element {
+  def elem(contents: Array[String]): Element = new ArrayElement(contents)
+  def elem(line: String): Element =  new LineElement(line)
+  def elem(chr: Char, width: Int, height: Int) = new UniformElement(chr, width, height)
+}
+
+val col1 = Seq("This","is", "the", "left", "column").foldLeft(Element.elem(""))((curr, el) => curr.above(Element.elem(el)))
+val col2 = Seq("This","column","is on the right").foldLeft(Element.elem(""))((curr, el) => curr.above(Element.elem(el)))
+col1.beside(col2)
+/*
+The top of the class hierarchy in Scala is Any. There are two subclasses of Any:
+  - AnyVal, which is the parent of all the built-in value classes (the Java primitives and Unit). AnyVal types support implicit conversions to rich classes which offer more functionality.
+  - AnyRef, which is the parent of all classes. AnyRef is an alias for java.lang.Object, the parent class of all Java classes.
+
+In Scala, == follows natural equality for value types, and aliases the equals method for reference types.
+To specifically compare references, Scala has "eq" and "ne" operators.
+ */
+val str1 = new String("dog")
+val str2 = new String("dog")
+str1 == str2
+!(str1 eq str2)
+str1 ne str2
+/*
+Null is a subclass of every reference type, so any non-value type can be assigned a value of null.
+Nothing is a subclass of every class. Usually, Nothing is used to signify abnormal behaviour.
+ */
+def divide(x: Int, y: Int): Int = {
+  if (y==0) error("divide by zero") // error has a Nothing return type, which is a subclass of Int
+  else x/y
+}
+
+
+/*
+---
+Chapter 11: Traits and Mixins
+
+Traits are analogous to Java interfaces. A class can have multiple traits.
+Like with inheritance, a class which has a trait inherits methods and fields from that trait, and an instance of that class can be used where an instance of the trait is expected.
+When a class inherits another class, traits are specified using the "with" keyword. If there is no inherited class, the trait is specified with "extends"
+ */
+trait Printable {
+  def print() = println(this)
+}
+trait Excited {
+  override def toString = super.toString + "!"
+}
+class Frog extends Printable {
+  override def toString = "I am a frog"
+}
+val frog = new Frog
+frog.print() // "I am a frog"
+val excitedFrog = new Frog with Excited // trait mixin at instantiation
+excitedFrog.print() // "I am a frog!"
+/*
+Java interfaces cannot define concrete methods. This makes it difficult to make "thick" interfaces with many methods, since a class must implement every method of an interface it implements.
+Scala traits allow for concrete methods to be defined within traits, allowing for thicker interfaces.
+
+The Ordered trait is a good example of where traits do much better for thick interfaces.
+Other than equality, there are four main comparison operators (<, >, <=, >=), all of which can be implemented in terms of a single less-than (or greater-than) function.
+The Ordered trait declares an abstract comparison method, and then defines concrete methods for each operator using the comparison method, so you only need to implement one method.
+Equaliity is not defined by the Ordered trait.
+
+Traits can be used to optimize efficiency, for example by caching the hashCode so it must only be computed once.
+The order that traits are included is important; each consecutive trait overrides any methods of the previous.
+ */
+abstract class BaseBookShelf(books: List[String]) {
+  override def hashCode = {
+    books.map(_.hashCode).sum
+  }
+}
+trait HashCaching {
+  private var cachedHash: Int = 0
+  private var hashComputed: Boolean = false
+  override def hashCode = {
+    if (!hashComputed) {
+      cachedHash = super.hashCode
+      hashComputed = true
+    }
+    cachedHash
+  }
+}
+trait HashScrambling {
+  override def hashCode = {
+    val original = super.hashCode
+    def rl(i: Int) = Integer.rotateLeft(original, i)
+    original ^ rl(8) ^ rl(16) ^ rl(24)
+  }
+}
+// if HashCaching was specified before HashScrambling, then the unscrambled hash would be cached instead of the scrambled version - order matters
+class BookShelf(val books: List[String]) extends BaseBookShelf(books) with Ordered[BookShelf] with HashScrambling with HashCaching {
+  def compare(that: BookShelf): Int = this.books.length - that.books.length
+  def equals(that: BookShelf): Boolean = compare(that) == 0
+}
+val smallShelf = new BookShelf(List("Lord of the Rings", "The Hobbit"))
+val largeShelf = new BookShelf(List("A Game of Thrones", "Harry Potter", "Programming in Scala"))
+smallShelf < largeShelf
+!(smallShelf == largeShelf)
+/*
+A trait can extend another class; what this means is that a class which mixes the trait in must extend the parent of the trait.
+Traits may also define abstract methods which can be called from other traits if another trait has already given a concrete definition for the method.
+ */
+trait Talker {
+  def talk: String
+}
+trait Loud extends Talker {
+  abstract override def talk: String = super.talk.toUpperCase + "!!!"
+}
+trait Repetitive extends Talker {
+  abstract override def talk: String = super.talk + " " + super.talk
+}
+class FoodServer extends Talker {
+  def talk: String = "Anything to drink for you?"
+}
+(new FoodServer).talk == "Anything to drink for you?"
+(new FoodServer with Loud).talk == "ANYTHING TO DRINK FOR YOU?!!!"
+(new FoodServer with Repetitive).talk == "Anything to drink for you? Anything to drink for you?"
+(new FoodServer with Loud with Repetitive).talk == "ANYTHING TO DRINK FOR YOU?!!! ANYTHING TO DRINK FOR YOU?!!!"
+(new FoodServer with Repetitive with Loud).talk == "ANYTHING TO DRINK FOR YOU? ANYTHING TO DRINK FOR YOU?!!!" // ordering matters
+/*
+Trait linearization is the process of resolving method invocations in the correct order based on the mixin order of traits. Traits avoid issues that exist with multiple inheritance.
+Linearization is complicated, but the general rule is that a class is linearized before all of its superclasses and mixed-in traits.
+ */
+class Sup
+trait Trait1 extends Sup
+trait Trait2 extends Sup with Trait3
+trait Trait3
+class C extends Sup with Trait1 with Trait2
+/*
+Linearization of C: C -> Trait2 -> Trait3 -> Trait1 -> Sup -> AnyRef -> Any
+C is the class being linearized, so it starts with C. Then, Trait2 is the last mixed in trait, so it has highest precedence.
+Trait2 mixes in Trait3, so next is Trait3. Trait2 extends Sup, but Sup is extended by C, so it is not next.
+Returning to C, Trait1 is the previous trait mixed in, so it is next. Then, Sup is next, followed by its parent classes.
+ */
+
+
+/*
+---
+Chapter 12: Case Classes and Pattern Matching
+
+Case classes automatically generate convenient features for classes:
+  - factory methods so that classes can be instantiated without "new" just using the class parameters
+  - each class parameter is made a "val" so it's accessible as a field
+  - the "natural" implementations of toString, hashCode, and equals are added
+ */
+abstract class Expr
+case class Var(name: String) extends Expr
+case class Number(num: Double) extends Expr
+case class UnOp(operator: String, arg: Expr) extends Expr
+case class BinOp(operator: String, left: Expr, right: Expr) extends Expr
+val v = Var("x") // no need for "new"
+v.name == "x" // parameter is a field
+val v2 = Var("x")
+v == v2 // natural implementation of equals
+/*
+Case classes make pattern matching easy. In Scala, match expressions are analogous to switch statements.
+Cases are evaluated top to bottom, and they do not fall through.
+Using literals in cases matches exact values, while using expressions like e match anything and introduce identifiers for the fields.
+Underscores also match anything, but do not introduce identifiers to refer to fields.
+ */
+def simplifyTop(expr: Expr) : Expr = expr match {
+  case UnOp("-", UnOp("-", e)) => e // double negation
+  case BinOp("+", e, Number(0)) => e // additive identity
+  case BinOp("*", e, Number(1)) => e // multiplicative identity
+  case _ => expr // default case
+}
+simplifyTop(simplifyTop(UnOp("-", UnOp("-", BinOp("*", Var("x"), Number(1)))))) == Var("x") // - ( - ( x * 1 ) ) == x
+/*
+Note that in the above example, there are numerous layers of matching happening.
+For example, with the first case, first it checks if expr is of type UnOp. It also checks if its second argument is an UnOp, and then if the first argument of that UnOp is "-".
+
+Variable identifiers act as wildcards, so in order to use variables, you can:
+  - use capitalized identifiers
+  - use fields of an object
+  - use back ticks
+ */
+val Num = Number(1)
+val num2 = Number(2)
+val num3 = Number(3)
+def matchVar(expr: Expr): String = expr match {
+  case Num => "matches with Num"
+  case Number(num2.num) => "matches with num2"
+  case `num3` => "matches with num3"
+  case _ => "matches with none"
+}
+matchVar(Number(1)) == "matches with Num"
+matchVar(Number(2)) == "matches with num2"
+matchVar(Number(3)) == "matches with num3"
+matchVar(Number(4)) == "matches with none"
+/*
+Pattern matching also works on structures like sequences and tuples, and can also check types.
+ */
+def identifyAny(x: Any): String = x match {
+  case List(a, _*) => s"list starting with $a" // use of variable length arguments
+  case (a,b,c) => s"3-tuple consisting of $a, $b, and $c"
+  case a: Int => s"integer with the value $a"
+  case a: Map[_,_] => "some kind of map"
+  case _ => "something else"
+}
+identifyAny(List(1,2,3)) == "list starting with 1"
+identifyAny((true, "foo", 42)) == "3-tuple consisting of true, foo, and 42"
+identifyAny(17) == "integer with the value 17"
+identifyAny(new scala.collection.immutable.HashMap[String, Int]) == "some kind of map"
+identifyAny(42.0f) == "something else"
+/*
+For generics, Scala uses erasure, which means, while the types are known at compile-time, at runtime they are unknown.
+Consequently, it is impossible to use specific generic types when pattern matching, except for Arrays which are implemented differently (as in Java).
+
+If you need to bind a variable to a matched case class, it can be done with the @ modifier.
+ */
+def removeAbs(expr: Expr) = expr match {
+  case UnOp("abs", e@UnOp("abs", _)) => e // remove redundant absolute value operations
+  case _ => expr
+}
+/*
+Pattern guards allow for extra conditions to be checked when matching.
+
+In many cases, especially with tree structures, it makes sense to use recursion on the match result.
+ */
+def simplifyAdd(expr: Expr): Expr = expr match { // converts x + x to 2*x
+  case BinOp("+", left, right) if left == right => BinOp("*", simplifyAdd(left), Number(2)) // BinOp("+", x, x) would not compile since it reuses an identifier
+  case _ => expr
+}
+simplifyAdd(BinOp("+", Var("x"), Var("x"))) == BinOp("*", Var("x"), Number(2))
+simplifyAdd(BinOp("+", BinOp("+", Var("x"), Var("x")), BinOp("+", Var("x"), Var("x")))) == BinOp("*", BinOp("*", Var("x"), Number(2)), Number(2))
+/*
+When writing pattern matches, it's important to cover every possible case to avoid match errors.
+Sometimes, a default case does not make much sense, but it's impossible to enumerate all cases for a class if the class can be extended.
+Sealed classes are classes which can only be extended from within the same file. Thus, sealed classes have a guarantee about possible patterns.
+It is recommended to seal classes being used for pattern matching; the compiler will flag matches missing certain patterns.
+
+For example, if Expr was made sealed, the compiler would throw a warning if any match expression on an Expr did not have a case for each subclass of Expr.
+
+The Option class provides a way to handle optional values more cleanly than null-checking, since handling these optional values is checked compile-time.
+An Option[A] instance may be Some[A] or None. Pattern matching is useful in handling either case.
+ */
+val translations: Map[String, String] = Map("blue" -> "bleu", "red" -> "rouge", "green" -> "vert")
+def lookupIfExists(key: String): String = translations.get(key) match { // the get method returns an Option
+  case Some(x) => x
+  case None => "key not found in map"
+}
+lookupIfExists("green") == "vert"
+lookupIfExists("yellow") == "key not found in map"
+/*
+Patterns can be used to deconstruct tuples and case classes. Wildcards can be used to ignore fields.
+ */
+val tup = (42, "apple", 3.0)
+val (number, fruit, float) = tup
+number == 42
+fruit == "apple"
+float == 3.0
+
+case class Flight(dep: String, dest: String, time: String)
+val flight1 = Flight("YYZ", "YTZ", "12:00pm")
+val Flight(_, dest, _) = flight1
+dest == "YTZ"
+/*
+Match expressions are partial functions. To check whether a PartialFunction can be evaluated at some value, you can use the isDefinedAt function.
+ */
+val pf: PartialFunction[String, String] = {
+  case "blue" => "bleu"
+  case "red" => "rouge"
+  case "green" => "vert"
+}
+pf.isDefinedAt("green")
+!pf.isDefinedAt("yellow")

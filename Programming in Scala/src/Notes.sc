@@ -711,3 +711,142 @@ C is the class being linearized, so it starts with C. Then, Trait2 is the last m
 Trait2 mixes in Trait3, so next is Trait3. Trait2 extends Sup, but Sup is extended by C, so it is not next.
 Returning to C, Trait1 is the previous trait mixed in, so it is next. Then, Sup is next, followed by its parent classes.
  */
+
+
+/*
+---
+Chapter 12: Case Classes and Pattern Matching
+
+Case classes automatically generate convenient features for classes:
+  - factory methods so that classes can be instantiated without "new" just using the class parameters
+  - each class parameter is made a "val" so it's accessible as a field
+  - the "natural" implementations of toString, hashCode, and equals are added
+ */
+abstract class Expr
+case class Var(name: String) extends Expr
+case class Number(num: Double) extends Expr
+case class UnOp(operator: String, arg: Expr) extends Expr
+case class BinOp(operator: String, left: Expr, right: Expr) extends Expr
+val v = Var("x") // no need for "new"
+v.name == "x" // parameter is a field
+val v2 = Var("x")
+v == v2 // natural implementation of equals
+/*
+Case classes make pattern matching easy. In Scala, match expressions are analogous to switch statements.
+Cases are evaluated top to bottom, and they do not fall through.
+Using literals in cases matches exact values, while using expressions like e match anything and introduce identifiers for the fields.
+Underscores also match anything, but do not introduce identifiers to refer to fields.
+ */
+def simplifyTop(expr: Expr) : Expr = expr match {
+  case UnOp("-", UnOp("-", e)) => e // double negation
+  case BinOp("+", e, Number(0)) => e // additive identity
+  case BinOp("*", e, Number(1)) => e // multiplicative identity
+  case _ => expr // default case
+}
+simplifyTop(simplifyTop(UnOp("-", UnOp("-", BinOp("*", Var("x"), Number(1)))))) == Var("x") // - ( - ( x * 1 ) ) == x
+/*
+Note that in the above example, there are numerous layers of matching happening.
+For example, with the first case, first it checks if expr is of type UnOp. It also checks if its second argument is an UnOp, and then if the first argument of that UnOp is "-".
+
+Variable identifiers act as wildcards, so in order to use variables, you can:
+  - use capitalized identifiers
+  - use fields of an object
+  - use back ticks
+ */
+val Num = Number(1)
+val num2 = Number(2)
+val num3 = Number(3)
+def matchVar(expr: Expr): String = expr match {
+  case Num => "matches with Num"
+  case Number(num2.num) => "matches with num2"
+  case `num3` => "matches with num3"
+  case _ => "matches with none"
+}
+matchVar(Number(1)) == "matches with Num"
+matchVar(Number(2)) == "matches with num2"
+matchVar(Number(3)) == "matches with num3"
+matchVar(Number(4)) == "matches with none"
+/*
+Pattern matching also works on structures like sequences and tuples, and can also check types.
+ */
+def identifyAny(x: Any): String = x match {
+  case List(a, _*) => s"list starting with $a" // use of variable length arguments
+  case (a,b,c) => s"3-tuple consisting of $a, $b, and $c"
+  case a: Int => s"integer with the value $a"
+  case a: Map[_,_] => "some kind of map"
+  case _ => "something else"
+}
+identifyAny(List(1,2,3)) == "list starting with 1"
+identifyAny((true, "foo", 42)) == "3-tuple consisting of true, foo, and 42"
+identifyAny(17) == "integer with the value 17"
+identifyAny(new scala.collection.immutable.HashMap[String, Int]) == "some kind of map"
+identifyAny(42.0f) == "something else"
+/*
+For generics, Scala uses erasure, which means, while the types are known at compile-time, at runtime they are unknown.
+Consequently, it is impossible to use specific generic types when pattern matching, except for Arrays which are implemented differently (as in Java).
+
+If you need to bind a variable to a matched case class, it can be done with the @ modifier.
+ */
+def removeAbs(expr: Expr) = expr match {
+  case UnOp("abs", e@UnOp("abs", _)) => e // remove redundant absolute value operations
+  case _ => expr
+}
+/*
+Pattern guards allow for extra conditions to be checked when matching.
+
+In many cases, especially with tree structures, it makes sense to use recursion on the match result.
+ */
+def simplifyAdd(expr: Expr): Expr = expr match { // converts x + x to 2*x
+  case BinOp("+", left, right) if left == right => BinOp("*", simplifyAdd(left), Number(2)) // BinOp("+", x, x) would not compile since it reuses an identifier
+  case _ => expr
+}
+simplifyAdd(BinOp("+", Var("x"), Var("x"))) == BinOp("*", Var("x"), Number(2))
+simplifyAdd(BinOp("+", BinOp("+", Var("x"), Var("x")), BinOp("+", Var("x"), Var("x")))) == BinOp("*", BinOp("*", Var("x"), Number(2)), Number(2))
+/*
+When writing pattern matches, it's important to cover every possible case to avoid match errors.
+Sometimes, a default case does not make much sense, but it's impossible to enumerate all cases for a class if the class can be extended.
+Sealed classes are classes which can only be extended from within the same file. Thus, sealed classes have a guarantee about possible patterns.
+It is recommended to seal classes being used for pattern matching; the compiler will flag matches missing certain patterns.
+
+For example, if Expr was made sealed, the compiler would throw a warning if any match expression on an Expr did not have a case for each subclass of Expr.
+
+The Option class provides a way to handle optional values more cleanly than null-checking, since handling these optional values is checked compile-time.
+An Option[A] instance may be Some[A] or None. Pattern matching is useful in handling either case.
+ */
+val translations: Map[String, String] = Map("blue" -> "bleu", "red" -> "rouge", "green" -> "vert")
+def lookupIfExists(key: String): String = translations.get(key) match { // the get method returns an Option
+  case Some(x) => x
+  case None => "key not found in map"
+}
+lookupIfExists("green") == "vert"
+lookupIfExists("yellow") == "key not found in map"
+/*
+Patterns can be used to deconstruct tuples and case classes. Wildcards can be used to ignore fields.
+ */
+val tup = (42, "apple", 3.0)
+val (number, fruit, float) = tup
+number == 42
+fruit == "apple"
+float == 3.0
+
+case class Flight(dep: String, dest: String, time: String)
+val flight1 = Flight("YYZ", "YTZ", "12:00pm")
+val Flight(_, dest, _) = flight1
+dest == "YTZ"
+/*
+Match expressions are partial functions. To check whether a PartialFunction can be evaluated at some value, you can use the isDefinedAt function.
+ */
+val pf: PartialFunction[String, String] = {
+  case "blue" => "bleu"
+  case "red" => "rouge"
+  case "green" => "vert"
+}
+pf.isDefinedAt("green")
+!pf.isDefinedAt("yellow")
+/*
+Pattern matching also works with for expressions.
+ */
+val reverseTranslations = for ((english, french) <- translations) yield french -> english
+reverseTranslations("bleu") == "blue"
+val options = List(Some("apple"), None, Some("orange"))
+(for (Some(option) <- options) yield option) == List("apple", "orange")
