@@ -181,7 +181,9 @@ Rules about literals:
   - octal characters can be specified with '\#', hex characters can be specified with '\u#'
 
 All operators are methods of the operands' types.
-Infix operators are just method calls with the parameters. Prefix operators are limited to unary +, -, !, and ~.
+Infix operators are just method calls with the parameters.
+Prefix operators are limited to unary methods (they take one parameter), and are limited to +, -, !, and ~.
+  - Prefix operators are defined with method name unary_{op} (e.g. unary_+)
  */
 1 + 2l == 1.+(2l)
 val d : String = "Doggies"
@@ -748,10 +750,10 @@ simplifyTop(simplifyTop(UnOp("-", UnOp("-", BinOp("*", Var("x"), Number(1)))))) 
 Note that in the above example, there are numerous layers of matching happening.
 For example, with the first case, first it checks if expr is of type UnOp. It also checks if its second argument is an UnOp, and then if the first argument of that UnOp is "-".
 
-Variable identifiers act as wildcards, so in order to use variables, you can:
+Variable identifiers act as wildcards, so in order to use variables in match statements, you can:
   - use capitalized identifiers
   - use fields of an object
-  - use back ticks
+  - wrap the variable in back ticks
  */
 val Num = Number(1)
 val num2 = Number(2)
@@ -904,7 +906,7 @@ Access modifiers restrict access to members of packages, classes, and objects.
 
 Access modifiers can specify the outermost package/class from which they are visible
   - private[X] means that the member is visible anywhere in package/class X, but private elsewhere.
-  - private[this] means the member is "object-private". This means the member is only visible within that instance of the class (and not other instances)
+   - private[this] means the member is "object-private". This means the member is only visible within that instance of the class (and not other instances)
  */
 /*
 package top {
@@ -940,4 +942,85 @@ class Rocket(val fuel: Double) {
 }
 val rocket = new Rocket(42)
 Rocket.chooseStrategy(rocket) == "go home"
+
+
+/*
+---
+Chapter 14: Working with Lists
+
+Lists are like arrays, but immutable. For a List[T], every element in a list is of the same type T.
+Lists are covariant, meaning if S is a subtype of T, then List[S] is a subtype of List[T].
+
+The basic building blocks of lists are Nil and :: ("cons"). :: is right-associative, and prepends the left element to the right list.
+Nil is the base "list" when lists are constructed this way.
+*/
+1 :: List(2,3) == List(1,2,3)
+1 :: 2 :: List(3) == 1 :: (2 :: List(3))
+1 :: 2 :: 3 :: Nil == List(1,2,3)
+/*
+Some common list operators: head, tail, isEmpty, nonEmpty
+
+Lists can be taken apart using patterns.
+ */
+val names = List("Alice", "Bob", "Chris")
+val List(a,b,c) = names
+a == "Alice" && b == "Bob" && c == "Chris"
+val a_el :: b_el :: c_list = names // base is a List, not an element
+a_el == "Alice" && b_el == "Bob" && c_list == List("Chris")
+/*
+First-order methods on lists are methods which don't take functions as arguments.
+  - ::: concatenates two lists.
+  - length calculates the length of a list. This is an O(n) operation, so if checking if length = 0, use isEmpty/nonEmpty.
+  - last returns the last element, while init returns all but the last element. These are both O(n).
+  - reverse returns the list in reverse order.
+  - drop(n) returns all elements except the first n, take(n) returns the first n elements.
+  - splitAt returns two lists split at the given index.
+  - apply(n) returns the element at index n, indices returns a list of valid indices for a list.
+  - zip forms a list of pairs from two lists, dropping any leftover elements. zipWithIndex pairs elements with their indices.
+
+Higher-order methods take functions as arguments, providing reusability for many common patterns.
+  - map returns a list with a function applied to every member of the list.
+  - flatMap is like map, but the function returns a list, and the results are concatenated.
+  - foreach applies a procedure to each member of the list.
+ */
+List(1,2,3,4).map((num:Int) => num*num) == List(1,4,9,16)
+List("Lorem","Ipsum").map(_.toList) == List(List('L','o','r','e','m'), List('I','p','s','u','m'))
+List("Lorem","Ipsum").flatMap(_.toList) == List('L','o','r','e','m','I','p','s','u','m')
+/*
+  - filter returns all elements of the list for which the passed function is true.
+  - partition returns a pair of lists with elements for which the passed function is true and false.
+  - find returns the first element for which the passed function is true.
+  - takeWhile and dropWhile return list resulting from taking/dropping elements while the passed function is true.
+  - span returns a pair of lists resulting from takeWhile and dropWhile.
+ */
+List(1,2,3,4).filter(_ % 2 == 0) == List(2,4)
+List(1,2,3,4).partition(_ % 2 == 0) == (List(2,4), List(1,3))
+List(1,2,3,4).find(_ % 2 == 0) == Some(2)
+List(1,2,3,4).takeWhile(_/4 == 0) == List(1,2,3)
+List(1,2,3,4).dropWhile(_/4 == 0) == List(4)
+List(1,2,3,4).span(_/4 == 0) == (List(1,2,3), List(4))
+/*
+  - forall returns true if the passed function is true for all elements of the list.
+  - exists returns true if the passed function is true for at least one element in the list.
+ */
+List(3,12,393).forall(_ % 3 == 0)
+List(2,11,393).exists(_ % 3 == 0)
+/*
+  - /: and :\ can be used to fold lists left or right.
+    - Folds repeatedly apply a binary function to some accumulator and the next element in a list to generate the next accumulator value.
+    - The symbolic names are aliases for foldLeft and foldRight
+  - fold acts similarly to /: and :\, except the ordering is undefined, and the binary function has both parameters of the same type. This is useful for parallelization.
+ */
+val phrase = List("The", "quick", "brown", "fox")
+val foldLeft = ("start:" /: phrase)((accum: String, word: String) => s"$accum $word")
+foldLeft == "start: The quick brown fox"
+val foldRight = (phrase :\ ":end")((word: String, accum: String) => s"$word $accum")
+foldRight == "The quick brown fox :end"
+/*
+Methods of the List object are globally accessible utility methods.
+  - List.range(x,y,z=1) creates a list from x to y with an optional step parameter z.
+  - List.make(x,y) creates a list with x copies of y.
+  - List.unzip(x) performs the inverse of zip, separating a list of pairs into two lists.
+  - List.flatten concatenates a list of lists. List.concat concatenates a variable number of list arguments.
+ */
 
