@@ -1,0 +1,77 @@
+Mark-Sweep (Ch. 2)
+- mark traverses from roots and sets mark bit on live objects
+- sweep traverses heap and reclaims unmarked objects
+- performance is a huge concern for GCs
+	- bitmaps can be used (rather than bits in each object header) to improve cache performance
+	- techniques to minimize recursion stack
+- lazy sweeping amortizes O(heap size) sweep across allocations
+	- collection marks all blocks, creating free list (as usual) and "reclaim list" of candidate blocks for sweeping
+	- allocation exhausts free list, then incrementally sweeps reclaim list only until block found
+- mark has poor locality since it traverses a pointer graph; memory prefetching useful here
+	- since mark is a DFS, hard to prefetch (when will an object be popped? the prefetched memory could be evicted)
+	- prefetching and enqueueing objects popped off the stack into a fixed-size queue before marking means that, when dequeued, they should be in cache
+	- checking the mark bits of children before pushing onto mark stack still leads to cache misses
+		- pushing all children indiscriminately leads to repeated iterations (O(# edges) vs. O(# nodes)), but avoids cache misses
+
+Mark-Compact (Ch. 3)
+- mark-sweep is good, but doesn't address fragmentation
+- compact phase "compacts" live blocks, moving them into contiguous heap memory
+	- allocation is just bumping a free pointer
+	- compaction order typically sliding (order preserved), but could be arbitrary (harms locality) or linearizing (pointees close to pointers)
+- two-finger compaction (2 pass, arbitrary) scans from heap start and end, moving objects from end into open spots at start
+	- first pass moves, leaving forwarding pointer at old spot
+	- second pass updates references pointing to old location
+- lisp 2 (sliding, 3 pass) uses dedicated forwarding address field inside header
+	- first pass computes new locations
+	- second pass updates references pointing to old location
+	- third pass moves everything to new locations
+- Jonkers (sliding, 2 pass) avoids the extra forwarding address field, using pointer "threading"
+	- by reversing direction of pointers to each object, can construct a linked list of fields which point to each object
+	- first pass (forward references) threads all pointer fields and updates forward references to X to point to where it will end up
+		- inductively, all forward references will already be threaded, so we just traverse list and update each reference
+	- second pass (backward references) updates backward references to X to point to where it will end up, and then moves X
+- Compressor (sliding, 1 pass) and similar 1-pass algorithms leverage side-tables (metadata is not stored in object headers)
+	- mark bits stored in a bit vector
+	- construct a mapping for the new starting offset for each block of memory (rather than each object)
+	- for each object, use bit vector to compute an offset to add to the starting offset
+
+Copying (Ch. 4)
+- compacted heaps improve speed and locality of allocations, but collection can be slow
+- split heap into 2 semispaces, from-space and to-space, and copy live objects from former to latter during collection
+- different traversal orders when copying affect locality
+	- Cheney's algorithm uses the to-space as its work list, performing a BFS, which separates parents from children
+	- DFS is better than BFS, but incurs space overhead
+	- Moon's modification to Cheney's approximates DFS: secondary scan performed over the last to-space page not completely scanned before continuing primary scan
+	- optimal arrangement is NP-complete. can also profile field accesses and copy "hot" fields over with objects
+
+Reference Counting (Ch. 5)
+- counter of references to object maintained in header; object freed when count reaches 0
+- memory (usually) freed as soon as it is unreachable, unlike tracing
+- however, counting slows mutator code, requires atomicity, increases memory overhead and usage, and cannot reclaim cyclic structures
+- deferred reference counting reduces overhead by only updating counts based on heap references
+	- many reference count changes caused by locals (and other roots); this avoids many atomic increment and decrement operations
+	- stop-the-world collection required; increments counts based on root references before determining garbage
+- coalesced reference counting avoids redundant increment + decrement operations
+	- e.g. in X <- obj1, X <- obj2, .. X <- objn, we need only decrement obj0 and increment obj
+	- logs old values of an object's pointer fields; at end of epoch, increments for current values and decrements for logged values
+- Recycler detects cycles by checking candidates (objects whose reference counts, after a decrement, are nonzero) during an atomic collect phase
+	- speculatively "deletes" candidate recursively; if it results in a zero reference count, object deleted, otherwise counts restored
+- the count field in an object header can theoretically be pointer-sized (i.e. object referenced by every other object), which is a waste
+	- can treat objects whose counts exceed a maximum differently (e.g. with a tracing collector)
+
+Comparing Garbage Collectors (Ch. 6)
+- the right collector depends on application requirements
+- throughput (overall running time) 
+	- minimizing collector time not necessarily optimal if it increases mutator time explicitly (e.g. read/write barriers) or implicitly (e.g. bad cache interactions)
+- pause time (time the world is stopped for collection)
+	- system could have real-time constraints or be detrimentally affected by pauses (e.g. workload buildup)
+- space (memory usage)
+	- collectors use memory (reference count fields, free lists, semispaces, etc.)
+	- some collectors free memory immediately as it becomes garbage, while others take longer to free it
+- implementation (of the collection algorithm and more importantly its runtime interface)
+	- different algorithms impose different requirements on application code (e.g. reference counting requires read/write barriers)
+- research exists for dynamically adapting a collection strategy, statically determining a strategy using ML, and choosing a strategy based on user-provided constraints
+- abstractly, garbage collection is a fixed-point computation to assign reference counts to nodes
+	- under this framework, tracing and reference counting are very similar
+	- tracing computes a least fixed point whereas reference counting computes a greatest fixed point 
+	- the difference is cyclic garbage, which reference counting cannot detect (hence why tracing is used as a fallback)
