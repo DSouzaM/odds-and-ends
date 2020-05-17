@@ -18,7 +18,7 @@ Mark-Compact (Ch. 3)
 - compact phase "compacts" live blocks, moving them into contiguous heap memory
 	- allocation is just bumping a free pointer
 	- compaction order typically sliding (order preserved), but could be arbitrary (harms locality) or linearizing (pointees close to pointers)
-- two-finger compaction (2 pass, arbitrary) scans from heap start and end, moving objects from end into open spots at start
+- two-finger compaction (arbitrary, 2 pass) scans from heap start and end, moving objects from end into open spots at start
 	- first pass moves, leaving forwarding pointer at old spot
 	- second pass updates references pointing to old location
 - lisp 2 (sliding, 3 pass) uses dedicated forwarding address field inside header
@@ -28,7 +28,7 @@ Mark-Compact (Ch. 3)
 - Jonkers (sliding, 2 pass) avoids the extra forwarding address field, using pointer "threading"
 	- by reversing direction of pointers to each object, can construct a linked list of fields which point to each object
 	- first pass (forward references) threads all pointer fields and updates forward references to X to point to where it will end up
-		- inductively, all forward references will already be threaded, so we just traverse list and update each reference
+		- inductively, all forward references to X will already be threaded, so we just traverse list and update each reference
 	- second pass (backward references) updates backward references to X to point to where it will end up, and then moves X
 - Compressor (sliding, 1 pass) and similar 1-pass algorithms leverage side-tables (metadata is not stored in object headers)
 	- mark bits stored in a bit vector
@@ -52,7 +52,7 @@ Reference Counting (Ch. 5)
 	- many reference count changes caused by locals (and other roots); this avoids many atomic increment and decrement operations
 	- stop-the-world collection required; increments counts based on root references before determining garbage
 - coalesced reference counting avoids redundant increment + decrement operations
-	- e.g. in X <- obj1, X <- obj2, .. X <- objn, we need only decrement obj0 and increment obj
+	- e.g. in X <- obj1, X <- obj2, .. X <- objn, we need only decrement obj0 and increment objn
 	- logs old values of an object's pointer fields; at end of epoch, increments for current values and decrements for logged values
 - Recycler detects cycles by checking candidates (objects whose reference counts, after a decrement, are nonzero) during an atomic collect phase
 	- speculatively "deletes" candidate recursively; if it results in a zero reference count, object deleted, otherwise counts restored
@@ -75,3 +75,27 @@ Comparing Garbage Collectors (Ch. 6)
 	- under this framework, tracing and reference counting are very similar
 	- tracing computes a least fixed point whereas reference counting computes a greatest fixed point 
 	- the difference is cyclic garbage, which reference counting cannot detect (hence why tracing is used as a fallback)
+
+Allocation (Ch. 7)
+- sequential allocation (bumping a free pointer) is simple and efficient, but doesn't work as well with non-moving collectors
+- free-list allocation (data structure maintaining list of free cells) more complex, but gives more control
+    - sequential search strategy classically one of 3:
+        - first-fit (start at beginning and return first cell that fits)
+        - next-fit (first-fit, but start from last allocation)
+        - best-fit (search entire list for best fit)
+    - can improve on sequential search using balanced BSTs or bitmaps
+- external fragmentation (free memory dispersed into many small gaps) can cause allocation failures or wasted memory space
+    - unavoidable, but different allocation strategies affect its extent
+- segregated-fits allocation designates different size classes which are allocated separately; this mitigates fragmentation
+    - for all allocations exceeding the maximum size class, some other strategy still needs to be used
+    - introduces internal fragmentation, where an object is allocated more space than it needs because of the size class constraint
+    - a couple of approaches are common for populating free lists for each size class:
+        - big bag of pages: when a block with some size is allocated for use by a cell of some other size, the whole block is used for cells of that size (and possibly type)
+        - given a cell of size 2^(i+1), can split into two cells of size 2^i (repeatedly); the same 2 cells can be coalesced back into the original-size cell
+- there are many considerations allocators need to make, including:
+    - alignment (some objects may need to be aligned on certain boundaries, e.g. java doubles are 8-byte aligned)
+    - size constraints (some collection schemes require space for metadata)
+    - heap parsability (ability to traverse the heap and understand what objects exist in it)
+    - locality (both for allocation and for freeing)
+- in concurrent systems, allocation can be a significant bottleneck because of atomicity requirements
+    - often, each thread (or processor) is given its own local allocator, which avoids the need for synchronization
