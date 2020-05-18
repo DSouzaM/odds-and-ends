@@ -99,3 +99,19 @@ Allocation (Ch. 7)
     - locality (both for allocation and for freeing)
 - in concurrent systems, allocation can be a significant bottleneck because of atomicity requirements
     - often, each thread (or processor) is given its own local allocator, which avoids the need for synchronization
+
+Partitioning the heap (Ch. 8)
+- the heap can be partitioned into spaces managed with different policies/by different mechanisms
+- there are many different properties/metrics one could partition on/for, such as:
+    - mobility (e.g. copying/compacting collection cannot be used on immobile objects)
+    - size (e.g. large objects are expensive to move)
+    - kind (e.g. a partition with pointer-free objects need not be scanned)
+    - yield (e.g. collecting young objects reclaims more memory than old objects)
+    - thread (e.g. thread-local objects can be collected without synchronization)
+    - mutability (e.g. frequently modified objects incur a high overhead with reference counting)
+- spaces can be partitioned as contiguous areas (sometimes inefficient; large address space reserved), discontiguous chunks (requires table lookup), or not partitioned at all (using header bits to indicate an object's space)
+- partitioning can be done by:
+    - the collector (e.g. generational collectors when objects are promoted, or copying collectors for immovable objects)
+    - the allocator (e.g. large allocations put in separate partition, thread-local objects put in local partition)
+    - the compiler (e.g. an object is statically known to live for a long time)
+    - the mutator (e.g. read/write barriers might move/mark objects)
