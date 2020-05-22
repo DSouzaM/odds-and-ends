@@ -115,3 +115,36 @@ Partitioning the heap (Ch. 8)
     - the allocator (e.g. large allocations put in separate partition, thread-local objects put in local partition)
     - the compiler (e.g. an object is statically known to live for a long time)
     - the mutator (e.g. read/write barriers might move/mark objects)
+
+Generational Collection (Ch. 9)
+- motivated by the observation that most objects die young
+    - for objects which don't die young, no clear correlation in object lifetime
+- separates heap objects based on age and prioritizes collecting younger generations
+    - faster since time isn't wasted scanning older generations
+    - more memory reclaimed since old objects less frequently become garbage
+- "age" measured in terms of collections survived (memory allocated since creation an uncommon alternative)
+- size of younger generation is a balancing act
+    - too large, and young collections will take a long time
+    - too small, and more collections will occur, and consequently more young objects get promoted before they can die
+        - "nepotism" happens when promoted objects become garbage but keep other young garbage alive (leading to their promotion)
+        - a write barrier is required to detect cross-generational pointers; since new objects modified more than old objects, increases mutator overhead
+        - the old generation will fill up quicker, leading to more frequent full collections
+- using multiple (>2) generations enables smaller young generation without causing as many full collections
+    - when collecting any generation, all younger generations also collected; thus only pointers from old to new generations need be tracked (uncommon)
+    - more complex to implement and could increase overhead of write barrier
+- instead of more generations, one can use various mechanisms to control how objects are promoted:
+    - en masse, where all live objects in a generation are promoted (simple, but requiring multiple collections before promotion tends to reduce garbage)
+    - aging semispaces, where entire semispace is promoted after some number of copies (younger objects indiscriminately promoted)
+        - collect at object granularity by recording age in header
+        - "bucket brigade" separates generation into n semispaces, requiring data to reach nth semispace before promotion
+        - semispaces can use a lot of memory; can use an "eden" region for new allocations and 2 "survivor" semispaces for object surviving eden collection
+- since workloads can vary, some collectors adapt to program behaviour, e.g. by maximizing nursery space under current constraints, or using feedback
+- the "roots" for a generation include pointers into it from other generations
+    - remembered sets can be maintained which track objects potentially containing inter-generational pointers (requires write barrier)
+    - if we always collect the generations younger than the one we want to collect, we only need to track pointers from older to newer generations
+- younger generations almost always distinguished by physical location, so younger generations generally managed using copying
+- old objects infrequently change, and copying is wasteful, so the oldest generation is usually managed using mark-sweep (and maybe infrequent compaction)
+- some applications suffer because of objects that die shortly after they are tenured
+    - older-first collection algorithms give younger objects more time to die without wasting too much time on long-lived objects
+- generational collections do well with short-lived objects, but longer-lived ones suffer, since their collection and promotion are expensive
+    - researchers have used profiling, machine learning over a corpus of existing program traces, and static analyses to pre-tenure objects
