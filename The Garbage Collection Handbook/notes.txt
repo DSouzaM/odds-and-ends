@@ -148,3 +148,21 @@ Generational Collection (Ch. 9)
     - older-first collection algorithms give younger objects more time to die without wasting too much time on long-lived objects
 - generational collections do well with short-lived objects, but longer-lived ones suffer, since their collection and promotion are expensive
     - researchers have used profiling, machine learning over a corpus of existing program traces, and static analyses to pre-tenure objects
+
+Other partitioned schemes (Ch. 10)
+- large objects are more suited to non-moving collection (e.g. Treadmill)
+- objects can also be partitioned by the topology of pointers
+    - "Train collector" seeks to reduce overhead of old gen collections by incremental collecting "cars" and collocating cycles
+    - connectivity-based GC partitions objects so that pointers between partitions form a DAG; partitions collected in topological order
+        - effective partitioning is essential but difficult
+    - thread-local heaplets (which may not be pointed to by the global heap or other thread-local heaplets) allow threads to collect independently
+        - segregation of objects into local vs. global can be done statically or dynamically (and can be approximated with appropriate write barriers)
+    - stack allocation would simplify collection, but struggles with objects referenced by other objects which outlive them
+    - partitioning memory into regions which can be wholesale reclaimed is effective for fast collection, but requires explicit programmer input or complicated inference techniques
+- some collection schemes employ both moving and non-moving collection to minimize fragmentation while keeping collection overhead low
+    - one scheme divides the heap into k + 1 windows (k usable), and during collection performs copying on only one window (marking & sweeping the others)
+- Bookmarking collection directly interfaces with the virtual memory manager to reduce page faults
+    - e.g. a typical LRU scheme will first evict the same page the collector would use as the to-space for a nursery
+    - e.g. tracing the heap through nonresident pages normally causes page faults
+        - the Bookmarking collector marks objects referenced by a page before it is evicted so that it can complete a trace without loading the page
+- managing the nursery with copying and the old generation with reference counting is effective for the two generations' access patterns
