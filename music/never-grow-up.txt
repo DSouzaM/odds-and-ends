@@ -1,3 +1,5 @@
+Based on the tab here: https://tabs.ultimate-guitar.com/tab/taylor-swift/never-grow-up-tabs-1453285
+I tweaked the bridge a little bit but don't feel strongly enough about the changes to try and upstream them.
 
 Capo 7th fret. Everything relative to the capo.
 
