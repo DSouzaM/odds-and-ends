@@ -187,6 +187,11 @@ Chicken Xacuti
 see https://www.daringgourmet.com/chicken-xacuti/
 
 - result tastes awesome, but it takes a lot of work to find spices, toast them, blend them
+- substitutions: coriander seed -> ground coriander (~same amount), carom -> thyme, mace -> nothing
+- spices might toast better without the ground spices included
+- using mortar and pestle was difficult for cinnamon + star anise (maybe they needed to be toasted longer?)
+- the step where you put everything in a food processor was very tedious with a magic bullet
+- tamarind doesn't really separate much in the pan; maybe pre-separate it
 
 
 Harvest chicken casserole
